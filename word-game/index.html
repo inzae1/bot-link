@@ -220,7 +220,7 @@
     }
 
     document.querySelectorAll(".key-row[data-keys]").forEach(row => {
-      Array.from(row.dataset.keys).forEach(jamo => {
+      String(row.getAttribute("data-keys") || "").split("").forEach(jamo => {
         const key = document.createElement("button");
         key.className = "key";
         key.type = "button";
