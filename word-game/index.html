@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta property="og:title" content="오늘의 자음 단어게임">
+  <meta property="og:description" content="한글 자모의 위치를 추리해 정답을 맞혀보세요.">
+  <title>오늘의 자음 단어게임</title>
+  <style>
+    :root {
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      color: #f8fafc;
+      background: #080b12;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --gray: #374151;
+      --panel: rgba(17, 24, 39, .92);
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: max(22px, env(safe-area-inset-top)) 14px max(30px, env(safe-area-inset-bottom));
+      background:
+        radial-gradient(circle at 50% -10%, rgba(37, 99, 235, .32), transparent 34rem),
+        linear-gradient(180deg, #111827 0%, #080b12 70%);
+    }
+    main { width: min(100%, 620px); margin: 0 auto; }
+    .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .eyebrow { margin: 0 0 7px; color: #60a5fa; font-size: 11px; font-weight: 900; letter-spacing: .16em; }
+    h1 { margin: 0; font-size: clamp(25px, 7vw, 38px); }
+    .owner { margin: 8px 0 0; color: #94a3b8; font-size: 14px; }
+    .badge { flex: none; padding: 8px 11px; border-radius: 999px; background: rgba(96, 165, 250, .12); color: #93c5fd; font-size: 12px; font-weight: 900; }
+    .panel {
+      margin-top: 22px;
+      padding: 18px 12px;
+      border: 1px solid rgba(148, 163, 184, .15);
+      border-radius: 22px;
+      background: var(--panel);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .28);
+    }
+    .board { display: grid; gap: 7px; }
+    .row { display: flex; justify-content: center; gap: 6px; }
+    .cell {
+      display: grid;
+      width: clamp(34px, 10vw, 54px);
+      aspect-ratio: 1;
+      place-items: center;
+      border: 2px solid #334155;
+      border-radius: 9px;
+      background: rgba(15, 23, 42, .7);
+      font-size: clamp(19px, 5vw, 27px);
+      font-weight: 900;
+    }
+    .cell.green { border-color: var(--green); background: var(--green); }
+    .cell.yellow { border-color: var(--yellow); background: var(--yellow); }
+    .cell.gray { border-color: var(--gray); background: var(--gray); }
+    form { display: flex; gap: 8px; margin-top: 16px; }
+    input {
+      min-width: 0;
+      flex: 1;
+      padding: 14px;
+      border: 1px solid #334155;
+      border-radius: 13px;
+      outline: none;
+      background: #0f172a;
+      color: #fff;
+      font: inherit;
+      font-size: 16px;
+    }
+    input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96, 165, 250, .12); }
+    button {
+      border: 0;
+      border-radius: 13px;
+      padding: 0 18px;
+      background: #2563eb;
+      color: #fff;
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    button:disabled, input:disabled { opacity: .5; cursor: default; }
+    .message { min-height: 24px; margin: 13px 4px 0; color: #cbd5e1; font-size: 14px; line-height: 1.55; text-align: center; }
+    .message.error { color: #fca5a5; }
+    .result { display: none; margin-top: 16px; padding: 18px; border-radius: 16px; background: rgba(37, 99, 235, .12); text-align: center; }
+    .result.show { display: block; }
+    .result strong { display: block; font-size: 22px; }
+    .result span { display: block; margin-top: 7px; color: #bfdbfe; }
+    .give-up { display: block; margin: 14px auto 0; padding: 8px 12px; background: transparent; color: #64748b; font-size: 12px; }
+    .legend { margin: 17px 4px 0; color: #64748b; font-size: 12px; line-height: 1.7; text-align: center; }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="top">
+      <div>
+        <p class="eyebrow">KOREAN JAMO WORD GAME</p>
+        <h1>오늘의 자음 단어게임</h1>
+        <p class="owner" id="owner">게임을 불러오는 중입니다.</p>
+      </div>
+      <span class="badge" id="mode">확인 중</span>
+    </header>
+
+    <section class="panel">
+      <div class="board" id="board"></div>
+      <form id="guess-form">
+        <input id="guess" autocomplete="off" autocapitalize="off" placeholder="한글 단어 입력" aria-label="추측 단어">
+        <button id="submit" type="submit">입력</button>
+      </form>
+      <p class="message" id="message"></p>
+      <div class="result" id="result"></div>
+      <button class="give-up" id="give-up" type="button">정답 포기</button>
+    </section>
+    <p class="legend">초록은 위치까지 일치, 노랑은 다른 위치에 존재, 회색은 정답에 없는 자모입니다.</p>
+  </main>
+
+  <script>
+    const API_BASE = "https://korean-word-game.inzae-wordgame.workers.dev";
+    const params = new URLSearchParams(location.search);
+    const gameId = params.get("game");
+    const claimToken = params.get("token") || "";
+    let playToken = localStorage.getItem("word-game-session:" + gameId) || "";
+    let currentGame = null;
+
+    const board = document.querySelector("#board");
+    const form = document.querySelector("#guess-form");
+    const input = document.querySelector("#guess");
+    const submit = document.querySelector("#submit");
+    const message = document.querySelector("#message");
+    const resultBox = document.querySelector("#result");
+    const giveUp = document.querySelector("#give-up");
+
+    function setMessage(text, error) {
+      message.textContent = text || "";
+      message.className = "message" + (error ? " error" : "");
+    }
+
+    function setPlayable(enabled) {
+      input.disabled = !enabled;
+      submit.disabled = !enabled;
+      giveUp.style.display = enabled ? "block" : "none";
+    }
+
+    function render(game) {
+      currentGame = game;
+      document.querySelector("#owner").textContent = game.ownerName + "님의 게임 · " + game.wordLength + "칸";
+      document.querySelector("#mode").textContent = playToken ? "플레이" : "읽기 전용";
+      board.innerHTML = "";
+
+      for (let rowIndex = 0; rowIndex < game.maxTry; rowIndex++) {
+        const row = document.createElement("div");
+        row.className = "row";
+        const data = game.rows[rowIndex];
+        for (let column = 0; column < game.wordLength; column++) {
+          const cell = document.createElement("span");
+          cell.className = "cell";
+          if (data) {
+            cell.textContent = data.jamo[column] || "";
+            cell.classList.add(data.result[column]);
+          }
+          row.appendChild(cell);
+        }
+        board.appendChild(row);
+      }
+
+      const playing = game.status === "playing";
+      setPlayable(playing && Boolean(playToken));
+      resultBox.className = "result";
+      if (!playing) {
+        const labels = {
+          won: "정답입니다!",
+          lost: "도전에 실패했습니다.",
+          gave_up: "게임을 포기했습니다."
+        };
+        resultBox.innerHTML = "<strong>" + (labels[game.status] || "게임 종료") + "</strong>" +
+          "<span>정답: " + game.answer +
+          (game.status === "won" ? " · +" + game.point + "점" : "") + "</span>";
+        resultBox.classList.add("show");
+        setMessage("결과가 저장되었습니다.");
+      } else if (!playToken) {
+        setMessage("이 링크에서는 진행 상황만 볼 수 있습니다.");
+      } else {
+        setMessage(game.tryCount + "/" + game.maxTry + "회 사용");
+      }
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(API_BASE + path, options);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "요청에 실패했습니다.");
+      return data;
+    }
+
+    async function load() {
+      if (!gameId) throw new Error("게임 주소가 올바르지 않습니다.");
+      if (!playToken && claimToken) {
+        try {
+          const claimed = await api("/api/games/" + encodeURIComponent(gameId) + "/claim", {
+            method: "POST",
+            headers: { "X-Play-Token": claimToken }
+          });
+          playToken = claimed.sessionToken;
+          localStorage.setItem("word-game-session:" + gameId, playToken);
+          history.replaceState(null, "", location.pathname + "?game=" + encodeURIComponent(gameId));
+        } catch (error) {
+          history.replaceState(null, "", location.pathname + "?game=" + encodeURIComponent(gameId));
+        }
+      }
+      const data = await api("/api/games/" + encodeURIComponent(gameId));
+      render(data.game);
+    }
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const word = input.value.trim();
+      if (!word || !currentGame || currentGame.status !== "playing") return;
+      setPlayable(false);
+      setMessage("사전을 확인하는 중입니다.");
+      try {
+        const data = await api("/api/games/" + encodeURIComponent(gameId) + "/guess", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Play-Token": playToken },
+          body: JSON.stringify({ word })
+        });
+        input.value = "";
+        render(data.game);
+      } catch (error) {
+        setMessage(error.message, true);
+        setPlayable(true);
+        input.focus();
+      }
+    });
+
+    giveUp.addEventListener("click", async () => {
+      if (!confirm("정답을 공개하고 게임을 끝낼까요?")) return;
+      setPlayable(false);
+      try {
+        const data = await api("/api/games/" + encodeURIComponent(gameId) + "/give-up", {
+          method: "POST",
+          headers: { "X-Play-Token": playToken }
+        });
+        render(data.game);
+      } catch (error) {
+        setMessage(error.message, true);
+        setPlayable(true);
+      }
+    });
+
+    load().catch(error => {
+      setMessage(error.message, true);
+      setPlayable(false);
+      document.querySelector("#mode").textContent = "오류";
+    });
+  </script>
+</body>
+</html>
