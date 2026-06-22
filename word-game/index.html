@@ -118,6 +118,15 @@
     .result.show { display: block; }
     .result strong { display: block; font-size: 22px; }
     .result span { display: block; margin-top: 7px; color: #bfdbfe; }
+    .share-result {
+      display: none;
+      width: 100%;
+      min-height: 48px;
+      margin-top: 12px;
+      background: #fee500;
+      color: #191600;
+    }
+    .share-result.show { display: block; }
     .give-up { display: block; margin: 14px auto 0; padding: 8px 12px; background: transparent; color: #64748b; font-size: 12px; }
     .legend { margin: 17px 4px 0; color: #64748b; font-size: 12px; line-height: 1.7; text-align: center; }
   </style>
@@ -151,13 +160,16 @@
       </form>
       <p class="message" id="message"></p>
       <div class="result" id="result"></div>
+      <button class="share-result" id="share-result" type="button">카카오 피드로 결과 공유</button>
       <button class="give-up" id="give-up" type="button">정답 포기</button>
     </section>
     <p class="legend">초록은 위치까지 일치, 노랑은 다른 위치에 존재, 회색은 정답에 없는 자모입니다.</p>
   </main>
 
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.8.1/kakao.min.js"></script>
   <script>
     const API_BASE = "https://korean-word-game.inzae-wordgame.workers.dev";
+    const KAKAO_JAVASCRIPT_KEY = "075a2d137b102e5d4180c2686354cc3b";
     const params = new URLSearchParams(location.search);
     const gameId = params.get("game");
     const claimToken = params.get("token") || "";
@@ -170,6 +182,7 @@
     const submit = document.querySelector("#submit");
     const message = document.querySelector("#message");
     const resultBox = document.querySelector("#result");
+    const shareResult = document.querySelector("#share-result");
     const giveUp = document.querySelector("#give-up");
     const keyboardSubmit = document.querySelector("#keyboard-submit");
     const statusRank = { gray: 1, yellow: 2, green: 3 };
@@ -317,6 +330,7 @@
       const playing = game.status === "playing";
       setPlayable(playing && Boolean(playToken));
       resultBox.className = "result";
+      shareResult.className = "share-result";
       if (!playing) {
         const labels = {
           won: "정답입니다!",
@@ -327,6 +341,7 @@
           "<span>정답: " + game.answer +
           (game.status === "won" ? " · +" + game.point + "점" : "") + "</span>";
         resultBox.classList.add("show");
+        shareResult.classList.add("show");
         setMessage("결과가 저장되었습니다.");
       } else if (!playToken) {
         setMessage("이 링크에서는 진행 상황만 볼 수 있습니다.");
@@ -335,6 +350,49 @@
         renderDraft();
       }
     }
+
+    function resultGrid(game) {
+      const tiles = { green: "🟩", yellow: "🟨", gray: "⬜" };
+      return game.rows
+        .map(row => row.result.map(status => tiles[status] || "⬜").join(""))
+        .join("\n");
+    }
+
+    function readOnlyGameUrl() {
+      const url = new URL(location.href);
+      url.searchParams.delete("token");
+      return url.toString();
+    }
+
+    shareResult.addEventListener("click", () => {
+      if (!currentGame || currentGame.status === "playing") return;
+      if (typeof Kakao === "undefined") {
+        setMessage("카카오 공유 기능을 불러오지 못했습니다.", true);
+        return;
+      }
+      if (!Kakao.isInitialized()) Kakao.init(KAKAO_JAVASCRIPT_KEY);
+
+      const won = currentGame.status === "won";
+      const title = currentGame.ownerName + "님의 오늘의 단어 결과";
+      const description =
+        (won ? currentGame.tryCount + "/" + currentGame.maxTry + "회 성공" : "도전 종료") +
+        "\n" + resultGrid(currentGame);
+      const gameUrl = readOnlyGameUrl();
+
+      Kakao.Share.sendDefault({
+        objectType: "feed",
+        content: {
+          title,
+          description,
+          imageUrl: "https://images.unsplash.com/photo-1632501641765-e568d28b0015?auto=format&fit=crop&w=800&h=400&q=80",
+          link: { mobileWebUrl: gameUrl, webUrl: gameUrl }
+        },
+        buttons: [{
+          title: "결과판 보기",
+          link: { mobileWebUrl: gameUrl, webUrl: gameUrl }
+        }]
+      });
+    });
 
     async function api(path, options = {}) {
       const response = await fetch(API_BASE + path, options);
