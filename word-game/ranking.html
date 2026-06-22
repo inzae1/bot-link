@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <meta property="og:title" content="오늘의 단어 랭킹">
+  <meta property="og:description" content="한글 자모 단어게임의 순위를 확인하세요.">
+  <title>오늘의 단어 랭킹</title>
+  <style>
+    :root { font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: #f8fafc; background: #080b12; }
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; padding: 28px 14px 44px; background: radial-gradient(circle at 50% -10%, rgba(37, 99, 235, .35), transparent 34rem), linear-gradient(180deg, #111827, #080b12 70%); }
+    main { width: min(100%, 680px); margin: 0 auto; }
+    .eyebrow { margin: 0 0 8px; color: #60a5fa; font-size: 11px; font-weight: 900; letter-spacing: .16em; }
+    h1 { margin: 0; font-size: clamp(28px, 8vw, 42px); }
+    .room { margin: 9px 0 0; color: #94a3b8; }
+    .ranking { display: grid; gap: 10px; margin-top: 24px; }
+    .rank { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; padding: 16px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 17px; background: rgba(17, 24, 39, .9); }
+    .rank.top { border-color: rgba(96, 165, 250, .35); background: rgba(30, 41, 59, .95); }
+    .position { font-size: 25px; font-weight: 900; text-align: center; }
+    .name { margin: 0; font-size: 17px; font-weight: 900; }
+    .record { margin: 5px 0 0; color: #94a3b8; font-size: 13px; }
+    .point { color: #93c5fd; font-size: 16px; font-weight: 900; white-space: nowrap; }
+    .empty { margin-top: 24px; padding: 30px; border-radius: 18px; background: #111827; color: #94a3b8; text-align: center; }
+    .updated { margin: 18px 0 0; color: #64748b; font-size: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">KOREAN JAMO WORD GAME</p>
+    <h1>오늘의 단어 랭킹</h1>
+    <p class="room" id="room"></p>
+    <section class="ranking" id="ranking"></section>
+    <p class="updated" id="updated"></p>
+  </main>
+  <script>
+    function decodeData() {
+      const encoded = new URLSearchParams(location.search).get("d");
+      if (!encoded) return null;
+      const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+      const binary = atob(base64);
+      const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes));
+    }
+    function render(data) {
+      document.querySelector("#room").textContent = data.room + " · 상위 10명";
+      const ranking = document.querySelector("#ranking");
+      const medals = ["🥇", "🥈", "🥉"];
+      if (!data.items.length) { ranking.innerHTML = '<div class="empty">아직 랭킹 기록이 없습니다.</div>'; return; }
+      data.items.forEach(item => {
+        const card = document.createElement("article");
+        card.className = "rank" + (item.rank <= 3 ? " top" : "");
+        const position = document.createElement("div");
+        position.className = "position";
+        position.textContent = medals[item.rank - 1] || item.rank;
+        const info = document.createElement("div");
+        const name = document.createElement("p");
+        name.className = "name";
+        name.textContent = item.name;
+        const record = document.createElement("p");
+        record.className = "record";
+        record.textContent = item.win + "승 " + item.lose + "패 · 최고 " + (item.bestTry ? item.bestTry + "회" : "-");
+        info.append(name, record);
+        const point = document.createElement("div");
+        point.className = "point";
+        point.textContent = item.point + "점";
+        card.append(position, info, point);
+        ranking.appendChild(card);
+      });
+      document.querySelector("#updated").textContent = "갱신 " + new Date(data.updatedAt).toLocaleString("ko-KR");
+    }
+    try {
+      const data = decodeData();
+      if (!data || !Array.isArray(data.items)) throw new Error("랭킹 데이터 없음");
+      render(data);
+    } catch {
+      document.querySelector("#ranking").innerHTML = '<div class="empty">랭킹 정보를 불러오지 못했습니다.<br>봇에서 새 링크를 받아주세요.</div>';
+    }
+  </script>
+</body>
+</html>
