@@ -79,7 +79,14 @@
     .key.yellow { border-color: var(--yellow); background: var(--yellow); }
     .key.gray { border-color: #334155; background: #334155; color: #94a3b8; opacity: .65; }
     .key.action { width: auto; min-width: 64px; padding: 0 12px; background: #334155; font-size: 13px; }
-    form { display: flex; gap: 8px; margin-top: 16px; }
+    form {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
     input {
       min-width: 0;
       flex: 1;
@@ -134,6 +141,7 @@
         <div class="key-row">
           <button class="key action" id="keyboard-clear" type="button">전체삭제</button>
           <button class="key action" id="keyboard-backspace" type="button">⌫ 지우기</button>
+          <button class="key action submit-key" id="keyboard-submit" type="button">입력</button>
         </div>
       </div>
       <form id="guess-form">
@@ -162,6 +170,7 @@
     const message = document.querySelector("#message");
     const resultBox = document.querySelector("#result");
     const giveUp = document.querySelector("#give-up");
+    const keyboardSubmit = document.querySelector("#keyboard-submit");
     const statusRank = { gray: 1, yellow: 2, green: 3 };
     const cho = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
     const jung = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"];
@@ -221,7 +230,6 @@
           if (input.disabled) return;
           input.value += jamo;
           renderDraft();
-          input.focus();
         });
         row.appendChild(key);
       });
@@ -231,14 +239,16 @@
       if (input.disabled) return;
       input.value = Array.from(input.value).slice(0, -1).join("");
       renderDraft();
-      input.focus();
     });
 
     document.querySelector("#keyboard-clear").addEventListener("click", () => {
       if (input.disabled) return;
       input.value = "";
       renderDraft();
-      input.focus();
+    });
+
+    keyboardSubmit.addEventListener("click", () => {
+      if (!submit.disabled) form.requestSubmit();
     });
 
     input.addEventListener("input", renderDraft);
@@ -251,6 +261,7 @@
     function setPlayable(enabled) {
       input.disabled = !enabled;
       submit.disabled = !enabled;
+      keyboardSubmit.disabled = !enabled;
       giveUp.style.display = enabled ? "block" : "none";
     }
 
@@ -353,7 +364,6 @@
       } catch (error) {
         setMessage(error.message, true);
         setPlayable(true);
-        input.focus();
       }
     });
 
