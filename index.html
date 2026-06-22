@@ -5,89 +5,117 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#17130f">
   <meta property="og:title" content="맞춤 위스키 추천">
-  <meta property="og:description" content="나에게 맞는 위스키 추천 결과를 확인해보세요.">
+  <meta property="og:description" content="추천받은 위스키 3종을 카드로 비교해보세요.">
   <title>맞춤 위스키 추천</title>
   <style>
     :root {
       color-scheme: dark;
       font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
         "Noto Sans KR", sans-serif;
-      background: #120f0c;
-      color: #f8f1e7;
+      background: #100d0a;
+      color: #fff8ed;
     }
-
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       min-height: 100vh;
       margin: 0;
-      padding: 28px 18px;
+      padding: 28px 16px 44px;
       background:
-        radial-gradient(circle at 15% 0%, rgba(194, 132, 56, 0.22), transparent 34rem),
-        linear-gradient(160deg, #17120e 0%, #0d0b09 100%);
+        radial-gradient(circle at 12% 0%, rgba(203, 139, 60, .25), transparent 32rem),
+        linear-gradient(160deg, #1a140f 0%, #0c0a08 100%);
     }
-
-    main {
-      width: min(100%, 680px);
-      margin: 0 auto;
-    }
-
+    main { width: min(100%, 760px); margin: 0 auto; }
     .eyebrow {
-      margin: 0 0 9px;
-      color: #d8a55f;
-      font-size: 13px;
-      font-weight: 800;
-      letter-spacing: 0.14em;
+      margin: 0 0 8px;
+      color: #dda85f;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .16em;
     }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(28px, 7vw, 44px);
-      line-height: 1.18;
+    h1 { margin: 0; font-size: clamp(28px, 7vw, 44px); line-height: 1.2; }
+    .summary {
+      margin: 12px 0 0;
+      color: #cbbdaf;
+      font-size: 15px;
+      line-height: 1.65;
       word-break: keep-all;
     }
-
-    .card {
+    .cards {
+      display: grid;
+      gap: 14px;
       margin-top: 24px;
-      padding: 24px;
-      border: 1px solid rgba(222, 170, 97, 0.24);
-      border-radius: 24px;
-      background: rgba(36, 28, 21, 0.88);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(12px);
     }
-
-    #body {
-      margin: 0;
-      color: #eadfd1;
-      font-size: 16px;
-      line-height: 1.8;
-      white-space: pre-wrap;
-      word-break: keep-all;
-    }
-
-    button {
+    .pick {
       width: 100%;
-      margin-top: 18px;
-      padding: 16px 18px;
+      padding: 0;
+      border: 1px solid rgba(222, 170, 97, .2);
+      border-radius: 22px;
+      overflow: hidden;
+      background: rgba(39, 30, 22, .9);
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: 0 14px 38px rgba(0, 0, 0, .22);
+    }
+    .pick.selected {
+      border-color: #e4ad62;
+      box-shadow: 0 0 0 2px rgba(228, 173, 98, .16), 0 18px 50px rgba(0, 0, 0, .32);
+    }
+    .pick-head {
+      display: grid;
+      grid-template-columns: 46px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 18px;
+    }
+    .rank {
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      border-radius: 15px;
+      background: rgba(221, 168, 95, .12);
+      font-size: 23px;
+    }
+    .name { margin: 0; font-size: 18px; line-height: 1.35; word-break: keep-all; }
+    .price { margin: 5px 0 0; color: #d6a45e; font-size: 13px; font-weight: 800; }
+    .arrow { color: #8f8174; font-size: 18px; transition: transform .2s ease; }
+    .pick.selected .arrow { transform: rotate(180deg); }
+    .detail {
+      display: none;
+      padding: 0 18px 20px 76px;
+      color: #e8ddd0;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .pick.selected .detail { display: block; }
+    .label { margin: 15px 0 3px; color: #a99b8e; font-size: 11px; font-weight: 900; letter-spacing: .08em; }
+    .detail p { margin: 0; white-space: pre-wrap; word-break: keep-all; }
+    .notes { color: #f2c989; }
+    .share {
+      width: 100%;
+      margin-top: 14px;
+      padding: 14px 16px;
       border: 0;
-      border-radius: 16px;
+      border-radius: 14px;
       background: #fee500;
       color: #191600;
       font: inherit;
       font-weight: 900;
       cursor: pointer;
     }
-
-    button:active {
-      transform: translateY(1px);
+    .empty {
+      margin-top: 24px;
+      padding: 24px;
+      border: 1px solid rgba(222, 170, 97, .2);
+      border-radius: 22px;
+      background: rgba(39, 30, 22, .9);
+      color: #d8cbbf;
+      line-height: 1.7;
     }
-
     .notice {
-      margin: 14px 4px 0;
-      color: #9f9387;
+      margin: 18px 4px 0;
+      color: #8f8174;
       font-size: 12px;
       line-height: 1.55;
       text-align: center;
@@ -98,41 +126,121 @@
   <main>
     <p class="eyebrow">WHISKY RECOMMENDATION</p>
     <h1 id="title">맞춤 위스키 추천</h1>
-
-    <section class="card">
-      <p id="body">추천 결과 링크가 정상적으로 열렸습니다.</p>
-      <button id="share" type="button">카카오톡으로 공유하기</button>
-    </section>
-
-    <p class="notice">가격과 재고는 판매처 및 조회 시점에 따라 달라질 수 있습니다.</p>
+    <p class="summary" id="summary">카드를 선택하면 상세 정보를 볼 수 있습니다.</p>
+    <section class="cards" id="cards"></section>
+    <p class="notice">가격은 실시간 조회값이 아닌 예상 범위이며 판매처와 시점에 따라 달라질 수 있습니다.</p>
   </main>
 
   <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.8.1/kakao.min.js"></script>
   <script>
     const JAVASCRIPT_KEY = "075a2d137b102e5d4180c2686354cc3b";
-    const params = new URLSearchParams(location.search);
-    const title = (params.get("title") || "맞춤 위스키 추천").slice(0, 100);
-    const body = (params.get("body") || "추천 결과 링크가 정상적으로 열렸습니다.").slice(0, 3000);
+    const medals = ["🥇", "🥈", "🥉"];
 
-    document.title = title;
-    document.querySelector("#title").textContent = title;
-    document.querySelector("#body").textContent = body;
-
-    if (!Kakao.isInitialized()) {
-      Kakao.init(JAVASCRIPT_KEY);
+    function decodeData() {
+      const encoded = new URLSearchParams(location.search).get("d");
+      if (!encoded) return null;
+      const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+      const binary = atob(base64);
+      const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes));
     }
 
-    document.querySelector("#share").addEventListener("click", function () {
+    function text(tag, className, value) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      element.textContent = value || "";
+      return element;
+    }
+
+    function addDetail(parent, label, value, className) {
+      parent.appendChild(text("p", "label", label));
+      parent.appendChild(text("p", className || "", value));
+    }
+
+    function shareRecommendation(data, item) {
+      const shareText = [
+        "🥃 " + item.name,
+        "예상 구매가 " + item.price,
+        item.notes.join(" · "),
+        "",
+        item.reason
+      ].join("\n").slice(0, 200);
+
       Kakao.Share.sendDefault({
         objectType: "text",
-        text: (title + "\n\n" + body).slice(0, 200),
-        link: {
-          mobileWebUrl: location.href,
-          webUrl: location.href
-        },
-        buttonTitle: "추천 결과 보기"
+        text: shareText,
+        link: { mobileWebUrl: location.href, webUrl: location.href },
+        buttonTitle: "추천 카드 보기"
       });
-    });
+    }
+
+    function render(data) {
+      const title = (data.sender ? data.sender + "님을 위한 " : "") + "맞춤 위스키 추천";
+      document.title = title;
+      document.querySelector("#title").textContent = title;
+      document.querySelector("#summary").textContent =
+        "목표 예산 약 " + data.budget + "만 원 · " + data.summary;
+
+      const cards = document.querySelector("#cards");
+      data.items.forEach((item, index) => {
+        const card = document.createElement("article");
+        card.className = "pick";
+        card.tabIndex = 0;
+
+        const head = document.createElement("div");
+        head.className = "pick-head";
+        head.appendChild(text("span", "rank", medals[index] || "🥃"));
+
+        const main = document.createElement("div");
+        main.appendChild(text("h2", "name", item.name));
+        main.appendChild(text("p", "price", "예상 구매가 " + item.price));
+        head.appendChild(main);
+        head.appendChild(text("span", "arrow", "⌄"));
+        card.appendChild(head);
+
+        const detail = document.createElement("div");
+        detail.className = "detail";
+        addDetail(detail, "풍미", item.notes.join(" · "), "notes");
+        addDetail(detail, "추천 포인트", item.reason);
+        addDetail(detail, "마시는 법", item.serving);
+        addDetail(detail, "페어링", item.pairing);
+
+        const share = text("button", "share", "이 제품 카카오톡으로 공유");
+        share.type = "button";
+        share.addEventListener("click", event => {
+          event.stopPropagation();
+          shareRecommendation(data, item);
+        });
+        detail.appendChild(share);
+        card.appendChild(detail);
+
+        function toggle() {
+          const wasSelected = card.classList.contains("selected");
+          document.querySelectorAll(".pick.selected").forEach(node => node.classList.remove("selected"));
+          if (!wasSelected) card.classList.add("selected");
+        }
+        card.addEventListener("click", toggle);
+        card.addEventListener("keydown", event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            toggle();
+          }
+        });
+        cards.appendChild(card);
+      });
+    }
+
+    try {
+      if (!Kakao.isInitialized()) Kakao.init(JAVASCRIPT_KEY);
+      const data = decodeData();
+      if (!data || !Array.isArray(data.items) || data.items.length !== 3) {
+        throw new Error("추천 데이터가 없습니다.");
+      }
+      render(data);
+    } catch (error) {
+      const empty = text("div", "empty", "추천 정보를 불러오지 못했습니다.\n위스키 봇에서 새 추천 링크를 받아주세요.");
+      document.querySelector("#cards").appendChild(empty);
+    }
   </script>
 </body>
 </html>
