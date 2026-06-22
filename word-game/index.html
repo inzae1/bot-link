@@ -40,7 +40,8 @@
       background: var(--panel);
       box-shadow: 0 20px 60px rgba(0, 0, 0, .28);
     }
-    .board { display: grid; gap: 7px; }
+    .board { display: grid; gap: 7px; cursor: text; outline: none; }
+    .board:focus-visible { border-radius: 12px; box-shadow: 0 0 0 3px rgba(96, 165, 250, .18); }
     .row { display: flex; justify-content: center; gap: 6px; }
     .cell {
       display: grid;
@@ -133,7 +134,7 @@
     </header>
 
     <section class="panel">
-      <div class="board" id="board"></div>
+      <div class="board" id="board" tabindex="0" role="textbox" aria-label="네모판을 눌러 단어 입력"></div>
       <div class="keyboard" id="keyboard" aria-label="사용한 자모">
         <div class="key-row" data-keys="ㅂㅈㄷㄱㅅㅛㅕ"></div>
         <div class="key-row" data-keys="ㅁㄴㅇㄹㅎㅗㅓㅏㅣ"></div>
@@ -145,7 +146,7 @@
         </div>
       </div>
       <form id="guess-form">
-        <input id="guess" autocomplete="off" autocapitalize="off" placeholder="한글 단어 입력" aria-label="추측 단어">
+        <input id="guess" autocomplete="off" autocapitalize="off" inputmode="text" placeholder="한글 단어 입력" aria-label="추측 단어">
         <button id="submit" type="submit">입력</button>
       </form>
       <p class="message" id="message"></p>
@@ -253,6 +254,20 @@
 
     input.addEventListener("input", renderDraft);
 
+    board.addEventListener("click", () => {
+      if (!input.disabled) input.focus();
+    });
+
+    board.addEventListener("keydown", event => {
+      if (input.disabled) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        form.requestSubmit();
+        return;
+      }
+      input.focus();
+    });
+
     function setMessage(text, error) {
       message.textContent = text || "";
       message.className = "message" + (error ? " error" : "");
@@ -316,7 +331,7 @@
       } else if (!playToken) {
         setMessage("이 링크에서는 진행 상황만 볼 수 있습니다.");
       } else {
-        setMessage(game.tryCount + "/" + game.maxTry + "회 사용");
+        setMessage(game.tryCount + "/" + game.maxTry + "회 사용 · 네모판을 누르면 키보드 입력");
         renderDraft();
       }
     }
