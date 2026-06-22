@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#17130f">
+  <meta property="og:title" content="맞춤 위스키 추천">
+  <meta property="og:description" content="나에게 맞는 위스키 추천 결과를 확인해보세요.">
+  <title>맞춤 위스키 추천</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+        "Noto Sans KR", sans-serif;
+      background: #120f0c;
+      color: #f8f1e7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 28px 18px;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(194, 132, 56, 0.22), transparent 34rem),
+        linear-gradient(160deg, #17120e 0%, #0d0b09 100%);
+    }
+
+    main {
+      width: min(100%, 680px);
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      margin: 0 0 9px;
+      color: #d8a55f;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 7vw, 44px);
+      line-height: 1.18;
+      word-break: keep-all;
+    }
+
+    .card {
+      margin-top: 24px;
+      padding: 24px;
+      border: 1px solid rgba(222, 170, 97, 0.24);
+      border-radius: 24px;
+      background: rgba(36, 28, 21, 0.88);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(12px);
+    }
+
+    #body {
+      margin: 0;
+      color: #eadfd1;
+      font-size: 16px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: keep-all;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 16px 18px;
+      border: 0;
+      border-radius: 16px;
+      background: #fee500;
+      color: #191600;
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    .notice {
+      margin: 14px 4px 0;
+      color: #9f9387;
+      font-size: 12px;
+      line-height: 1.55;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">WHISKY RECOMMENDATION</p>
+    <h1 id="title">맞춤 위스키 추천</h1>
+
+    <section class="card">
+      <p id="body">추천 결과 링크가 정상적으로 열렸습니다.</p>
+      <button id="share" type="button">카카오톡으로 공유하기</button>
+    </section>
+
+    <p class="notice">가격과 재고는 판매처 및 조회 시점에 따라 달라질 수 있습니다.</p>
+  </main>
+
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.8.1/kakao.min.js"></script>
+  <script>
+    const JAVASCRIPT_KEY = "075a2d137b102e5d4180c2686354cc3b";
+    const params = new URLSearchParams(location.search);
+    const title = (params.get("title") || "맞춤 위스키 추천").slice(0, 100);
+    const body = (params.get("body") || "추천 결과 링크가 정상적으로 열렸습니다.").slice(0, 3000);
+
+    document.title = title;
+    document.querySelector("#title").textContent = title;
+    document.querySelector("#body").textContent = body;
+
+    if (!Kakao.isInitialized()) {
+      Kakao.init(JAVASCRIPT_KEY);
+    }
+
+    document.querySelector("#share").addEventListener("click", function () {
+      Kakao.Share.sendDefault({
+        objectType: "text",
+        text: (title + "\n\n" + body).slice(0, 200),
+        link: {
+          mobileWebUrl: location.href,
+          webUrl: location.href
+        },
+        buttonTitle: "추천 결과 보기"
+      });
+    });
+  </script>
+</body>
+</html>
