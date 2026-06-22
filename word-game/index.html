@@ -219,7 +219,7 @@
       });
     }
 
-    document.querySelectorAll(".key-row").forEach(row => {
+    document.querySelectorAll(".key-row[data-keys]").forEach(row => {
       Array.from(row.dataset.keys).forEach(jamo => {
         const key = document.createElement("button");
         key.className = "key";
