@@ -56,6 +56,25 @@
     .cell.green { border-color: var(--green); background: var(--green); }
     .cell.yellow { border-color: var(--yellow); background: var(--yellow); }
     .cell.gray { border-color: var(--gray); background: var(--gray); }
+    .keyboard { display: grid; gap: 7px; margin-top: 18px; }
+    .key-row { display: flex; justify-content: center; gap: 5px; }
+    .key {
+      display: grid;
+      min-width: 0;
+      width: clamp(30px, 9vw, 43px);
+      height: 43px;
+      place-items: center;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      background: #1e293b;
+      color: #f8fafc;
+      font-size: 17px;
+      font-weight: 900;
+      transition: background .2s, border-color .2s, opacity .2s;
+    }
+    .key.green { border-color: var(--green); background: var(--green); }
+    .key.yellow { border-color: var(--yellow); background: var(--yellow); }
+    .key.gray { border-color: #334155; background: #334155; color: #94a3b8; opacity: .65; }
     form { display: flex; gap: 8px; margin-top: 16px; }
     input {
       min-width: 0;
@@ -104,6 +123,11 @@
 
     <section class="panel">
       <div class="board" id="board"></div>
+      <div class="keyboard" id="keyboard" aria-label="사용한 자모">
+        <div class="key-row" data-keys="ㅂㅈㄷㄱㅅㅛㅕ"></div>
+        <div class="key-row" data-keys="ㅁㄴㅇㄹㅎㅗㅓㅏㅣ"></div>
+        <div class="key-row" data-keys="ㅋㅌㅊㅍㅠㅜㅡ"></div>
+      </div>
       <form id="guess-form">
         <input id="guess" autocomplete="off" autocapitalize="off" placeholder="한글 단어 입력" aria-label="추측 단어">
         <button id="submit" type="submit">입력</button>
@@ -130,6 +154,17 @@
     const message = document.querySelector("#message");
     const resultBox = document.querySelector("#result");
     const giveUp = document.querySelector("#give-up");
+    const statusRank = { gray: 1, yellow: 2, green: 3 };
+
+    document.querySelectorAll(".key-row").forEach(row => {
+      Array.from(row.dataset.keys).forEach(jamo => {
+        const key = document.createElement("span");
+        key.className = "key";
+        key.dataset.jamo = jamo;
+        key.textContent = jamo;
+        row.appendChild(key);
+      });
+    });
 
     function setMessage(text, error) {
       message.textContent = text || "";
@@ -147,6 +182,7 @@
       document.querySelector("#owner").textContent = game.ownerName + "님의 게임 · " + game.wordLength + "칸";
       document.querySelector("#mode").textContent = playToken ? "플레이" : "읽기 전용";
       board.innerHTML = "";
+      const usedJamo = {};
 
       for (let rowIndex = 0; rowIndex < game.maxTry; rowIndex++) {
         const row = document.createElement("div");
@@ -158,11 +194,22 @@
           if (data) {
             cell.textContent = data.jamo[column] || "";
             cell.classList.add(data.result[column]);
+            const jamo = data.jamo[column];
+            const status = data.result[column];
+            if (!usedJamo[jamo] || statusRank[status] > statusRank[usedJamo[jamo]]) {
+              usedJamo[jamo] = status;
+            }
           }
           row.appendChild(cell);
         }
         board.appendChild(row);
       }
+
+      document.querySelectorAll(".key").forEach(key => {
+        key.className = "key";
+        const status = usedJamo[key.dataset.jamo];
+        if (status) key.classList.add(status);
+      });
 
       const playing = game.status === "playing";
       setPlayable(playing && Boolean(playToken));
