@@ -34,6 +34,29 @@
     h1 { margin: 0 0 12px; font-size: 27px; }
     p { margin: 0; color: #a7b8ad; line-height: 1.7; white-space: pre-line; }
     .result { margin-top: 18px; color: #86efac; font-size: 18px; font-weight: 900; }
+    .actions, .targets { display: grid; gap: 10px; margin-top: 18px; }
+    button {
+      width: 100%;
+      min-height: 48px;
+      border: 0;
+      border-radius: 14px;
+      background: #22c55e;
+      color: #052e16;
+      font-size: 15px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    button.target {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 16px;
+      background: #173321;
+      color: #dcffe7;
+    }
+    button.share { background: #fee500; color: #191919; }
+    button:disabled { cursor: wait; opacity: .55; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
@@ -41,10 +64,17 @@
     <h1 id="title">처리 중입니다</h1>
     <p id="message">잠시만 기다려주세요.</p>
     <p class="result" id="result"></p>
+    <div class="targets" id="targets"></div>
+    <div class="actions">
+      <button id="lottery" type="button" hidden>복권 뽑기</button>
+      <button class="share" id="share" type="button" hidden>카카오톡 공유하기</button>
+    </div>
   </main>
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.6/kakao.min.js"></script>
   <script>
     (function() {
       var API_BASE = "https://korean-word-game.inzae-wordgame.workers.dev";
+      var KAKAO_JS_KEY = "075a2d137b102e5d4180c2686354cc3b";
       var params = new URLSearchParams(location.search);
       var mode = params.get("mode");
       var actionId = params.get("action_id");
@@ -52,16 +82,10 @@
       var title = document.querySelector("#title");
       var message = document.querySelector("#message");
       var result = document.querySelector("#result");
-
-      function closeSoon() {
-        message.textContent = "잠시 후 창을 닫습니다.";
-        setTimeout(function() {
-          window.close();
-          setTimeout(function() {
-            message.textContent = "창이 닫히지 않으면 뒤로가기를 눌러주세요.";
-          }, 400);
-        }, 1300);
-      }
+      var targets = document.querySelector("#targets");
+      var lotteryButton = document.querySelector("#lottery");
+      var shareButton = document.querySelector("#share");
+      var shareText = "";
 
       if (!actionId || !actionToken || (mode !== "lottery" && mode !== "steal")) {
         title.textContent = "잘못된 링크입니다";
@@ -69,16 +93,34 @@
         return;
       }
 
-      title.textContent = mode === "lottery" ? "🎰 복권 추첨 중" : "🥷 포인트 훔치는 중";
-      var endpoint = API_BASE + "/api/point-actions/" +
-        encodeURIComponent(actionId) + "/" + mode +
-        "?token=" + encodeURIComponent(actionToken);
-      var body = mode === "steal" ? { randomTarget: true } : {};
+      function apiUrl(path) {
+        return API_BASE + "/api/point-actions/" +
+          encodeURIComponent(actionId) + "/" + path +
+          "?token=" + encodeURIComponent(actionToken);
+      }
 
-      fetch(endpoint, {
+      function setBusy(busy) {
+        lotteryButton.disabled = busy;
+        Array.prototype.forEach.call(
+          document.querySelectorAll(".target"),
+          function(button) { button.disabled = busy; }
+        );
+      }
+
+      function finish(text) {
+        result.textContent = text;
+        shareText = text;
+        shareButton.hidden = false;
+        message.textContent = "결과를 카카오톡으로 공유할 수 있습니다.";
+      }
+
+      function runAction(path, body) {
+        setBusy(true);
+        result.textContent = "결과를 처리하는 중입니다...";
+        return fetch(apiUrl(path), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+          body: JSON.stringify(body || {})
       }).then(function(response) {
         return response.json().then(function(data) {
           if (!response.ok) throw new Error(data.error || "처리하지 못했습니다.");
@@ -86,15 +128,90 @@
         });
       }).then(function(data) {
         title.textContent = mode === "lottery" ? "복권 결과" : "훔치기 결과";
-        result.textContent = data.message || "완료했습니다.";
+          var text = data.message || "완료했습니다.";
         if (typeof data.point === "number") {
-          result.textContent += "\n현재 포인트: " + data.point + "P";
+            text += "\n현재 포인트: " + data.point + "P";
         }
-        closeSoon();
+          targets.innerHTML = "";
+          lotteryButton.hidden = true;
+          finish(text);
       }).catch(function(error) {
         title.textContent = "실행 실패";
         result.textContent = error.message;
+          setBusy(false);
       });
+      }
+
+      function renderSession(session) {
+        if (mode === "lottery") {
+          title.textContent = "🎰 포인트 복권";
+          message.textContent = session.actorName + "님, 3P로 하루 한 번 도전할 수 있습니다.";
+          result.textContent = "현재 포인트: " + session.actorPoint + "P";
+          lotteryButton.hidden = false;
+          lotteryButton.addEventListener("click", function() {
+            runAction("lottery", {});
+          });
+          return;
+        }
+
+        title.textContent = "🥷 포인트 훔치기";
+        message.textContent = session.actorName + "님이 훔칠 대상을 선택하세요.";
+        result.textContent = "성공 확률은 50%이며 하루 한 번 시도할 수 있습니다.";
+        var available = session.users.filter(function(user) {
+          return user.id !== session.actorId && Number(user.point || 0) > 0;
+        });
+        if (!available.length) {
+          targets.innerHTML = "<p>훔칠 수 있는 대상이 없습니다.</p>";
+          return;
+        }
+        available.forEach(function(user) {
+          var button = document.createElement("button");
+          button.type = "button";
+          button.className = "target";
+          var name = document.createElement("span");
+          name.textContent = user.name;
+          var point = document.createElement("strong");
+          point.textContent = user.point + "P";
+          button.appendChild(name);
+          button.appendChild(point);
+          button.addEventListener("click", function() {
+            runAction("steal", { targetId: user.id });
+          });
+          targets.appendChild(button);
+        });
+      }
+
+      shareButton.addEventListener("click", function() {
+        if (!shareText) return;
+        if (!window.Kakao) {
+          result.textContent = shareText + "\n\n카카오 공유 기능을 불러오지 못했습니다.";
+          return;
+        }
+        if (!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
+        Kakao.Share.sendDefault({
+          objectType: "text",
+          text: "🎮 출석 포인트 게임 결과\n\n" + shareText,
+          link: {
+            mobileWebUrl: "https://inzae1.github.io/bot-link/check-point/",
+            webUrl: "https://inzae1.github.io/bot-link/check-point/"
+          },
+          buttonTitle: "포인트 현황 보기"
+        });
+      });
+
+      fetch(apiUrl("session"))
+        .then(function(response) {
+          return response.json().then(function(data) {
+            if (!response.ok) throw new Error(data.error || "정보를 불러오지 못했습니다.");
+            return data.session;
+          });
+        })
+        .then(renderSession)
+        .catch(function(error) {
+          title.textContent = "불러오기 실패";
+          message.textContent = "";
+          result.textContent = error.message;
+        });
     })();
   </script>
 </body>
