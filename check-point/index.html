@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#13201a">
+  <meta property="og:title" content="출석 포인트 현황">
+  <meta property="og:description" content="방의 출석 포인트와 연속 출석 순위를 확인하세요.">
+  <title>출석 포인트 현황</title>
+  <style>
+    :root {
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      color: #f5fff8;
+      background: #09110d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 28px 14px 44px;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(34, 197, 94, .28), transparent 34rem),
+        linear-gradient(180deg, #13201a, #09110d 72%);
+    }
+    main { width: min(100%, 720px); margin: 0 auto; }
+    .eyebrow { margin: 0 0 8px; color: #4ade80; font-size: 11px; font-weight: 900; letter-spacing: .16em; }
+    h1 { margin: 0; font-size: clamp(28px, 8vw, 42px); }
+    .room { margin: 9px 0 0; color: #9fb4a7; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 20px;
+    }
+    .summary div { padding: 13px 8px; border-radius: 14px; background: rgba(20, 36, 27, .9); text-align: center; }
+    .summary strong { display: block; color: #86efac; font-size: 19px; }
+    .summary span { display: block; margin-top: 3px; color: #7f9487; font-size: 11px; }
+    .list { display: grid; gap: 10px; margin-top: 18px; }
+    .user {
+      display: grid;
+      grid-template-columns: 48px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 16px;
+      border: 1px solid rgba(134, 239, 172, .12);
+      border-radius: 17px;
+      background: rgba(15, 27, 20, .92);
+    }
+    .user.top { border-color: rgba(74, 222, 128, .35); }
+    .rank { font-size: 23px; font-weight: 900; text-align: center; }
+    .name { margin: 0; font-size: 17px; font-weight: 900; }
+    .meta { margin: 5px 0 0; color: #8da196; font-size: 12px; line-height: 1.55; }
+    .point { color: #86efac; font-size: 18px; font-weight: 900; white-space: nowrap; }
+    .empty { margin-top: 22px; padding: 30px; border-radius: 17px; background: #0f1b14; color: #8da196; text-align: center; }
+    .updated { margin: 17px 0 0; color: #607267; font-size: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">DAILY ATTENDANCE POINT</p>
+    <h1>출석 포인트 현황</h1>
+    <p class="room" id="room"></p>
+    <section class="summary">
+      <div><strong id="member-count">0</strong><span>참여 인원</span></div>
+      <div><strong id="today-count">0</strong><span>오늘 출석</span></div>
+      <div><strong id="total-point">0P</strong><span>전체 포인트</span></div>
+    </section>
+    <section class="list" id="list"></section>
+    <p class="updated" id="updated"></p>
+  </main>
+  <script>
+    function decodeUtf8(binary) {
+      var encoded = "";
+      for (var i = 0; i < binary.length; i++) {
+        encoded += "%" + ("0" + binary.charCodeAt(i).toString(16)).slice(-2);
+      }
+      return decodeURIComponent(encoded);
+    }
+
+    function decodeData() {
+      var encoded = new URLSearchParams(location.search).get("d");
+      if (!encoded) return null;
+      var base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+      while (base64.length % 4) base64 += "=";
+      return JSON.parse(decodeUtf8(atob(base64)));
+    }
+
+    function render(data) {
+      var users = data.users || [];
+      var todayCount = 0;
+      var totalPoint = 0;
+      for (var i = 0; i < users.length; i++) {
+        if (users[i].checkedToday) todayCount++;
+        totalPoint += Number(users[i].point || 0);
+      }
+
+      document.querySelector("#room").textContent = data.room;
+      document.querySelector("#member-count").textContent = users.length;
+      document.querySelector("#today-count").textContent = todayCount;
+      document.querySelector("#total-point").textContent = totalPoint + "P";
+
+      var list = document.querySelector("#list");
+      if (!users.length) {
+        list.innerHTML = '<div class="empty">아직 출석 포인트 기록이 없습니다.</div>';
+        return;
+      }
+
+      var medals = ["🥇", "🥈", "🥉"];
+      users.forEach(function(user) {
+        var card = document.createElement("article");
+        card.className = "user" + (user.rank <= 3 ? " top" : "");
+
+        var rank = document.createElement("div");
+        rank.className = "rank";
+        rank.textContent = medals[user.rank - 1] || user.rank;
+
+        var info = document.createElement("div");
+        var name = document.createElement("p");
+        name.className = "name";
+        name.textContent = (user.checkedToday ? "✅ " : "") + user.name + (user.title ? " [" + user.title + "]" : "");
+        var meta = document.createElement("p");
+        meta.className = "meta";
+        meta.textContent =
+          "총 " + user.count + "회 · 이번달 " + user.monthCount + "회 · 연속 " + user.streak + "일\n" +
+          "마지막 출석 " + user.day;
+        info.appendChild(name);
+        info.appendChild(meta);
+
+        var point = document.createElement("div");
+        point.className = "point";
+        point.textContent = user.point + "P";
+        card.appendChild(rank);
+        card.appendChild(info);
+        card.appendChild(point);
+        list.appendChild(card);
+      });
+
+      document.querySelector("#updated").textContent =
+        "갱신 " + new Date(data.updatedAt).toLocaleString("ko-KR");
+    }
+
+    try {
+      var data = decodeData();
+      if (!data || !Array.isArray(data.users)) throw new Error("데이터 없음");
+      render(data);
+    } catch (error) {
+      document.querySelector("#list").innerHTML =
+        '<div class="empty">포인트 현황을 불러오지 못했습니다.<br>봇에서 새 링크를 받아주세요.</div>';
+    }
+  </script>
+</body>
+</html>
