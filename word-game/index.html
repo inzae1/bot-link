@@ -118,6 +118,19 @@
     .result.show { display: block; }
     .result strong { display: block; font-size: 22px; }
     .result span { display: block; margin-top: 7px; color: #bfdbfe; }
+    .auth {
+      display: none;
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px solid rgba(96, 165, 250, .25);
+      border-radius: 16px;
+      background: rgba(37, 99, 235, .1);
+      text-align: center;
+    }
+    .auth.show { display: block; }
+    .auth p { margin: 0; color: #cbd5e1; font-size: 13px; line-height: 1.6; }
+    .auth-code { display: block; margin: 8px 0; color: #93c5fd; font-size: 28px; font-weight: 900; letter-spacing: .12em; }
+    .auth button { min-height: 42px; margin-top: 10px; }
     .share-result {
       display: none;
       width: 100%;
@@ -159,6 +172,12 @@
         <button id="submit" type="submit">입력</button>
       </form>
       <p class="message" id="message"></p>
+      <div class="auth" id="auth">
+        <p>게임 소유자가 채팅방에 아래 명령어를 입력하면 이 브라우저에서 플레이할 수 있습니다.</p>
+        <strong class="auth-code" id="auth-command"></strong>
+        <p>인증번호는 5분 동안 유효합니다.</p>
+        <button id="auth-refresh" type="button">새 인증번호 받기</button>
+      </div>
       <div class="result" id="result"></div>
       <button class="share-result" id="share-result" type="button">카카오 피드로 결과 공유</button>
       <button class="give-up" id="give-up" type="button">정답 포기</button>
@@ -172,9 +191,10 @@
     const KAKAO_JAVASCRIPT_KEY = "075a2d137b102e5d4180c2686354cc3b";
     const params = new URLSearchParams(location.search);
     const gameId = params.get("game");
-    const claimToken = params.get("token") || "";
     let playToken = localStorage.getItem("word-game-session:" + gameId) || "";
     let currentGame = null;
+    let authRequestId = "";
+    let authTimer = null;
 
     const board = document.querySelector("#board");
     const form = document.querySelector("#guess-form");
@@ -182,6 +202,9 @@
     const submit = document.querySelector("#submit");
     const message = document.querySelector("#message");
     const resultBox = document.querySelector("#result");
+    const authBox = document.querySelector("#auth");
+    const authCommand = document.querySelector("#auth-command");
+    const authRefresh = document.querySelector("#auth-refresh");
     const shareResult = document.querySelector("#share-result");
     const giveUp = document.querySelector("#give-up");
     const keyboardSubmit = document.querySelector("#keyboard-submit");
@@ -293,6 +316,45 @@
       giveUp.style.display = enabled ? "block" : "none";
     }
 
+    async function requestAuthentication() {
+      if (!gameId || !currentGame || currentGame.status !== "playing" || playToken) return;
+      if (authTimer) clearInterval(authTimer);
+      const result = await api("/api/games/" + encodeURIComponent(gameId) + "/auth/request", {
+        method: "POST"
+      });
+      authRequestId = result.requestId;
+      authCommand.textContent = ".단어인증 " + result.code;
+      authBox.classList.add("show");
+      setMessage("소유자 인증을 기다리는 중입니다.");
+      authTimer = setInterval(checkAuthentication, 2000);
+    }
+
+    async function checkAuthentication() {
+      if (!authRequestId || playToken) return;
+      try {
+        const result = await api(
+          "/api/games/" + encodeURIComponent(gameId) +
+          "/auth/status?request=" + encodeURIComponent(authRequestId)
+        );
+        if (!result.approved) return;
+        playToken = result.sessionToken;
+        localStorage.setItem("word-game-session:" + gameId, playToken);
+        clearInterval(authTimer);
+        authTimer = null;
+        authBox.classList.remove("show");
+        render(currentGame);
+        setMessage("소유자 인증이 완료됐습니다.");
+      } catch (error) {
+        clearInterval(authTimer);
+        authTimer = null;
+        setMessage(error.message, true);
+      }
+    }
+
+    authRefresh.addEventListener("click", () => {
+      requestAuthentication().catch(error => setMessage(error.message, true));
+    });
+
     function render(game) {
       currentGame = game;
       document.querySelector("#owner").textContent = game.ownerName + "님의 게임 · " + game.wordLength + "칸";
@@ -331,6 +393,7 @@
       setPlayable(playing && Boolean(playToken));
       resultBox.className = "result";
       shareResult.className = "share-result";
+      if (!playing || playToken) authBox.classList.remove("show");
       if (!playing) {
         const labels = {
           won: "정답입니다!",
@@ -344,7 +407,7 @@
         shareResult.classList.add("show");
         setMessage("결과가 저장되었습니다.");
       } else if (!playToken) {
-        setMessage("이 링크에서는 진행 상황만 볼 수 있습니다.");
+        setMessage("읽기 전용 · 소유자는 아래 인증번호로 플레이 권한을 받을 수 있습니다.");
       } else {
         setMessage(game.tryCount + "/" + game.maxTry + "회 사용 · 네모판을 누르면 키보드 입력");
         renderDraft();
@@ -403,21 +466,9 @@
 
     async function load() {
       if (!gameId) throw new Error("게임 주소가 올바르지 않습니다.");
-      if (!playToken && claimToken) {
-        try {
-          const claimed = await api("/api/games/" + encodeURIComponent(gameId) + "/claim", {
-            method: "POST",
-            headers: { "X-Play-Token": claimToken }
-          });
-          playToken = claimed.sessionToken;
-          localStorage.setItem("word-game-session:" + gameId, playToken);
-          history.replaceState(null, "", location.pathname + "?game=" + encodeURIComponent(gameId));
-        } catch (error) {
-          history.replaceState(null, "", location.pathname + "?game=" + encodeURIComponent(gameId));
-        }
-      }
       const data = await api("/api/games/" + encodeURIComponent(gameId));
       render(data.game);
+      if (!playToken && data.game.status === "playing") await requestAuthentication();
     }
 
     form.addEventListener("submit", async event => {
