@@ -193,7 +193,9 @@
     const gameId = params.get("game");
     let playToken = localStorage.getItem("word-game-session:" + gameId) || "";
     let currentGame = null;
-    let authRequestId = "";
+    const authRequestStorageKey = "word-game-auth-request:" + gameId;
+    const authCodeStorageKey = "word-game-auth-code:" + gameId;
+    let authRequestId = localStorage.getItem(authRequestStorageKey) || "";
     let authTimer = null;
 
     const board = document.querySelector("#board");
@@ -323,31 +325,53 @@
         method: "POST"
       });
       authRequestId = result.requestId;
+      localStorage.setItem(authRequestStorageKey, authRequestId);
+      localStorage.setItem(authCodeStorageKey, result.code);
       authCommand.textContent = ".단어인증 " + result.code;
       authBox.classList.add("show");
       setMessage("소유자 인증을 기다리는 중입니다.");
       authTimer = setInterval(checkAuthentication, 2000);
     }
 
-    async function checkAuthentication() {
-      if (!authRequestId || playToken) return;
+    async function checkAuthentication(showPending) {
+      if (!authRequestId || playToken) return false;
       try {
         const result = await api(
           "/api/games/" + encodeURIComponent(gameId) +
           "/auth/status?request=" + encodeURIComponent(authRequestId)
         );
-        if (!result.approved) return;
+        if (!result.approved) {
+          const savedCode = localStorage.getItem(authCodeStorageKey) || "";
+          if (showPending && savedCode) {
+            authCommand.textContent = ".단어인증 " + savedCode;
+            authBox.classList.add("show");
+            setMessage("소유자 인증을 기다리는 중입니다.");
+          }
+          return false;
+        }
         playToken = result.sessionToken;
         localStorage.setItem("word-game-session:" + gameId, playToken);
+        localStorage.removeItem(authRequestStorageKey);
+        localStorage.removeItem(authCodeStorageKey);
+        authRequestId = "";
         clearInterval(authTimer);
         authTimer = null;
         authBox.classList.remove("show");
         render(currentGame);
         setMessage("소유자 인증이 완료됐습니다.");
+        return true;
       } catch (error) {
         clearInterval(authTimer);
         authTimer = null;
-        setMessage(error.message, true);
+        localStorage.removeItem(authRequestStorageKey);
+        localStorage.removeItem(authCodeStorageKey);
+        authRequestId = "";
+        if (showPending) {
+          await requestAuthentication();
+        } else {
+          setMessage(error.message, true);
+        }
+        return false;
       }
     }
 
@@ -468,7 +492,16 @@
       if (!gameId) throw new Error("게임 주소가 올바르지 않습니다.");
       const data = await api("/api/games/" + encodeURIComponent(gameId));
       render(data.game);
-      if (!playToken && data.game.status === "playing") await requestAuthentication();
+      if (!playToken && data.game.status === "playing") {
+        if (authRequestId) {
+          const approved = await checkAuthentication(true);
+          if (!approved && !authTimer && authRequestId) {
+            authTimer = setInterval(checkAuthentication, 2000);
+          }
+        } else {
+          await requestAuthentication();
+        }
+      }
     }
 
     form.addEventListener("submit", async event => {
