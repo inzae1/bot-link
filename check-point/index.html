@@ -69,6 +69,8 @@
     <p class="updated" id="updated"></p>
   </main>
   <script>
+    var API_BASE = "https://korean-word-game.inzae-wordgame.workers.dev";
+
     function decodeUtf8(binary) {
       var encoded = "";
       for (var i = 0; i < binary.length; i++) {
@@ -83,6 +85,17 @@
       var base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
       while (base64.length % 4) base64 += "=";
       return JSON.parse(decodeUtf8(atob(base64)));
+    }
+
+    function loadData() {
+      var id = new URLSearchParams(location.search).get("id");
+      if (!id) return Promise.resolve(decodeData());
+      return fetch(API_BASE + "/api/point-status/" + encodeURIComponent(id))
+        .then(function(response) {
+          if (!response.ok) throw new Error("포인트 현황 없음");
+          return response.json();
+        })
+        .then(function(result) { return result.data; });
     }
 
     function render(data) {
@@ -139,14 +152,13 @@
         "갱신 " + new Date(data.updatedAt).toLocaleString("ko-KR");
     }
 
-    try {
-      var data = decodeData();
+    loadData().then(function(data) {
       if (!data || !Array.isArray(data.users)) throw new Error("데이터 없음");
       render(data);
-    } catch (error) {
+    }).catch(function() {
       document.querySelector("#list").innerHTML =
         '<div class="empty">포인트 현황을 불러오지 못했습니다.<br>봇에서 새 링크를 받아주세요.</div>';
-    }
+    });
   </script>
 </body>
 </html>
