@@ -179,6 +179,7 @@
         <p>인증번호는 5분 동안 유효합니다.</p>
         <div class="auth-actions">
           <button id="auth-copy" type="button">명령어 복사</button>
+          <button id="auth-check" type="button">인증 완료 확인</button>
           <button id="auth-refresh" type="button">새 인증번호</button>
         </div>
       </div>
@@ -211,6 +212,7 @@
     const authBox = document.querySelector("#auth");
     const authCommand = document.querySelector("#auth-command");
     const authCopy = document.querySelector("#auth-copy");
+    const authCheck = document.querySelector("#auth-check");
     const authRefresh = document.querySelector("#auth-refresh");
     const shareResult = document.querySelector("#share-result");
     const giveUp = document.querySelector("#give-up");
@@ -383,6 +385,20 @@
     authRefresh.addEventListener("click", () => {
       requestAuthentication().catch(error => setMessage(error.message, true));
     });
+
+    authCheck.addEventListener("click", () => {
+      checkAuthentication(true).catch(error => setMessage(error.message, true));
+    });
+
+    function resumeAuthenticationCheck() {
+      if (!playToken && authRequestId && document.visibilityState !== "hidden") {
+        checkAuthentication(true).catch(error => setMessage(error.message, true));
+      }
+    }
+
+    document.addEventListener("visibilitychange", resumeAuthenticationCheck);
+    window.addEventListener("focus", resumeAuthenticationCheck);
+    window.addEventListener("pageshow", resumeAuthenticationCheck);
 
     async function copyAuthCommand() {
       const text = authCommand.textContent.trim();
