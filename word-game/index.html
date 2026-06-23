@@ -430,6 +430,13 @@
 
     function render(game) {
       currentGame = game;
+      if (!allowAuthentication) {
+        authBox.classList.remove("show");
+        authCommand.textContent = "";
+        authRequestId = "";
+        if (authTimer) clearInterval(authTimer);
+        authTimer = null;
+      }
       document.querySelector("#owner").textContent = game.ownerName + "님의 게임 · " + game.wordLength + "칸";
       document.querySelector("#mode").textContent = playToken ? "플레이" : "읽기 전용";
       board.innerHTML = "";
@@ -466,7 +473,7 @@
       setPlayable(playing && Boolean(playToken));
       resultBox.className = "result";
       shareResult.className = "share-result";
-      if (!playing || playToken) authBox.classList.remove("show");
+      if (!allowAuthentication || !playing || playToken) authBox.classList.remove("show");
       if (!playing) {
         const labels = {
           won: "정답입니다!",
