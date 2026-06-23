@@ -196,7 +196,10 @@
     const KAKAO_JAVASCRIPT_KEY = "075a2d137b102e5d4180c2686354cc3b";
     const params = new URLSearchParams(location.search);
     const gameId = params.get("game");
-    let playToken = localStorage.getItem("word-game-session:" + gameId) || "";
+    const allowAuthentication = params.get("mode") === "play";
+    let playToken = allowAuthentication
+      ? (localStorage.getItem("word-game-session:" + gameId) || "")
+      : "";
     let currentGame = null;
     const authRequestStorageKey = "word-game-auth-request:" + gameId;
     const authCodeStorageKey = "word-game-auth-code:" + gameId;
@@ -326,7 +329,7 @@
     }
 
     async function requestAuthentication() {
-      if (!gameId || !currentGame || currentGame.status !== "playing" || playToken) return;
+      if (!allowAuthentication || !gameId || !currentGame || currentGame.status !== "playing" || playToken) return;
       if (authTimer) clearInterval(authTimer);
       const result = await api("/api/games/" + encodeURIComponent(gameId) + "/auth/request", {
         method: "POST"
@@ -477,7 +480,9 @@
         shareResult.classList.add("show");
         setMessage("결과가 저장되었습니다.");
       } else if (!playToken) {
-        setMessage("읽기 전용 · 소유자는 아래 인증번호로 플레이 권한을 받을 수 있습니다.");
+        setMessage(allowAuthentication
+          ? "읽기 전용 · 소유자는 아래 인증번호로 플레이 권한을 받을 수 있습니다."
+          : "이 링크에서는 진행 상황만 볼 수 있습니다.");
       } else {
         setMessage(game.tryCount + "/" + game.maxTry + "회 사용 · 네모판을 누르면 키보드 입력");
         renderDraft();
@@ -494,6 +499,7 @@
     function readOnlyGameUrl() {
       const url = new URL(location.href);
       url.searchParams.delete("token");
+      url.searchParams.set("mode", "view");
       return url.toString();
     }
 
@@ -538,7 +544,7 @@
       if (!gameId) throw new Error("게임 주소가 올바르지 않습니다.");
       const data = await api("/api/games/" + encodeURIComponent(gameId));
       render(data.game);
-      if (!playToken && data.game.status === "playing") {
+      if (allowAuthentication && !playToken && data.game.status === "playing") {
         if (authRequestId) {
           const approved = await checkAuthentication(true);
           if (!approved && !authTimer && authRequestId) {
