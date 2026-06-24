@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#24160d">
   <meta name="robots" content="noindex,nofollow">
   <meta property="og:title" content="위스키 브랜드 퀴즈">
-  <meta property="og:description" content="힌트를 보고 카톡방 채팅으로 정답을 맞혀보세요.">
+  <meta property="og:description" content="힌트를 보고 위스키 브랜드를 맞혀보세요.">
   <title>위스키 브랜드 퀴즈</title>
   <style>
     :root {
@@ -70,13 +70,52 @@
       gap: 10px;
       margin-top: 10px;
     }
-    .option {
+    .option, button {
       padding: 13px 14px;
       border-radius: 14px;
       background: #2b1a0f;
       border: 1px solid rgba(251, 191, 36, .14);
       color: #fff7ed;
       font-weight: 900;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    button.primary {
+      width: 100%;
+      margin-top: 10px;
+      background: #d97706;
+      color: #fff7ed;
+      border-color: rgba(251, 191, 36, .35);
+    }
+    button.share {
+      width: 100%;
+      margin-top: 10px;
+      background: #fee500;
+      color: #191919;
+    }
+    input {
+      width: 100%;
+      min-height: 46px;
+      margin-top: 14px;
+      padding: 0 14px;
+      border: 1px solid rgba(251, 191, 36, .2);
+      border-radius: 14px;
+      background: #130b06;
+      color: #fff7ed;
+      font-size: 16px;
+      outline: none;
+    }
+    input:focus {
+      border-color: rgba(251, 191, 36, .6);
+    }
+    .result {
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 16px;
+      background: #1f130b;
+      color: #fef3c7;
+      line-height: 1.65;
+      white-space: pre-line;
     }
     .notice {
       color: #fef3c7;
@@ -91,7 +130,7 @@
     <section class="card">
       <p class="eyebrow">WHISKY QUIZ BOARD</p>
       <h1>🥃 위스키 브랜드 퀴즈</h1>
-      <p class="notice">정답은 웹에서 입력하지 말고 카톡방 채팅으로 입력하세요.</p>
+      <p class="notice">정답을 입력하거나 객관식 보기 공개 후 버튼을 눌러 맞혀보세요.</p>
       <div class="status">
         <span id="phase">불러오는 중</span>
         <span id="timer">--초</span>
@@ -100,25 +139,37 @@
 
     <section class="card">
       <div id="hints"></div>
+      <input id="answer-input" type="text" autocomplete="off" placeholder="정답 입력">
+      <button class="primary" id="submit" type="button">정답 제출</button>
+      <div class="result" id="result" hidden></div>
+      <button class="share" id="share" type="button" hidden>정답 공유하기</button>
       <div id="option-wrap" hidden>
         <div class="hint">
           <strong>객관식 보기</strong>
-          <p class="muted">번호 또는 이름을 카톡방 채팅으로 입력하세요.</p>
+          <p class="muted">정답이라고 생각하는 보기를 누르세요.</p>
           <div class="options" id="options"></div>
         </div>
       </div>
     </section>
   </main>
 
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.6/kakao.min.js"></script>
   <script>
     (function() {
+      var KAKAO_JS_KEY = "075a2d137b102e5d4180c2686354cc3b";
       var params = new URLSearchParams(location.search);
       var phase = document.querySelector("#phase");
       var timer = document.querySelector("#timer");
       var hints = document.querySelector("#hints");
       var optionWrap = document.querySelector("#option-wrap");
       var options = document.querySelector("#options");
+      var answerInput = document.querySelector("#answer-input");
+      var submit = document.querySelector("#submit");
+      var result = document.querySelector("#result");
+      var share = document.querySelector("#share");
       var payload;
+      var finished = false;
+      var finalText = "";
 
       try {
         payload = JSON.parse(params.get("q") || "{}");
@@ -126,10 +177,12 @@
         payload = null;
       }
 
-      if (!payload || !Array.isArray(payload.clues) || !payload.startedAt) {
+      if (!payload || !Array.isArray(payload.clues) || !payload.startedAt || !payload.answer) {
         phase.textContent = "잘못된 링크";
         timer.textContent = "";
         hints.innerHTML = '<p>카톡방에서 .위스키퀴즈를 다시 시작해주세요.</p>';
+        answerInput.hidden = true;
+        submit.hidden = true;
         return;
       }
 
@@ -146,6 +199,9 @@
         if (remain <= 0) phase.textContent = "시간 종료";
         else if (showOptions) phase.textContent = "객관식 공개";
         else phase.textContent = visible + "단서 공개";
+        if (remain <= 0 && !finished) {
+          finish(false, "시간 종료! 정답은 [" + payload.answer + "] 입니다.");
+        }
 
         var html = "";
         for (var i = 0; i < 3; i++) {
@@ -160,11 +216,52 @@
         optionWrap.hidden = !showOptions;
         if (showOptions && !options.childNodes.length) {
           (payload.options || []).forEach(function(option, index) {
-            var div = document.createElement("div");
-            div.className = "option";
-            div.textContent = (index + 1) + ". " + option;
-            options.appendChild(div);
+            var button = document.createElement("button");
+            button.type = "button";
+            button.className = "option";
+            button.textContent = (index + 1) + ". " + option;
+            button.addEventListener("click", function() {
+              checkAnswer(option);
+            });
+            options.appendChild(button);
           });
+        }
+      }
+
+      function normalize(value) {
+        return String(value || "").replace(/\s/g, "").toLowerCase();
+      }
+
+      function checkAnswer(value) {
+        if (finished) return;
+        var guess = String(value || "").trim();
+        if (!guess) {
+          result.hidden = false;
+          result.textContent = "정답을 입력해주세요.";
+          return;
+        }
+        if (normalize(guess) === normalize(payload.answer)) {
+          finish(true, "🎉 정답입니다!\n정답: " + payload.answer);
+        } else {
+          result.hidden = false;
+          result.textContent = "오답입니다: " + guess;
+          answerInput.select();
+        }
+      }
+
+      function finish(correct, text) {
+        finished = true;
+        finalText = text;
+        result.hidden = false;
+        result.textContent = text;
+        share.hidden = false;
+        answerInput.disabled = true;
+        submit.disabled = true;
+        Array.prototype.forEach.call(options.querySelectorAll("button"), function(button) {
+          button.disabled = true;
+        });
+        if (!correct) {
+          answerInput.value = "";
         }
       }
 
@@ -176,6 +273,32 @@
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&#39;");
       }
+
+      submit.addEventListener("click", function() {
+        checkAnswer(answerInput.value);
+      });
+
+      answerInput.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") checkAnswer(answerInput.value);
+      });
+
+      share.addEventListener("click", function() {
+        if (!finalText) return;
+        if (!window.Kakao) {
+          result.textContent = finalText + "\n\n카카오 공유 기능을 불러오지 못했습니다.";
+          return;
+        }
+        if (!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
+        Kakao.Share.sendDefault({
+          objectType: "text",
+          text: "🥃 위스키 브랜드 퀴즈 결과\n\n" + finalText,
+          link: {
+            mobileWebUrl: "https://inzae1.github.io/bot-link/whisky-quiz/",
+            webUrl: "https://inzae1.github.io/bot-link/whisky-quiz/"
+          },
+          buttonTitle: "문제판 보기"
+        });
+      });
 
       render();
       setInterval(render, 1000);
