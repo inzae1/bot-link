@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#24160d">
+  <meta name="robots" content="noindex,nofollow">
+  <meta property="og:title" content="위스키 브랜드 퀴즈">
+  <meta property="og:description" content="힌트를 보고 카톡방 채팅으로 정답을 맞혀보세요.">
+  <title>위스키 브랜드 퀴즈</title>
+  <style>
+    :root {
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+      color: #fff7ed;
+      background: #130b06;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 22px 14px 34px;
+      background:
+        radial-gradient(circle at 50% -12%, rgba(217, 119, 6, .32), transparent 34rem),
+        linear-gradient(180deg, #24160d, #130b06 72%);
+    }
+    main {
+      width: min(100%, 680px);
+      margin: 0 auto;
+    }
+    .card {
+      margin-top: 12px;
+      padding: 20px;
+      border: 1px solid rgba(251, 191, 36, .2);
+      border-radius: 22px;
+      background: rgba(33, 20, 12, .94);
+      box-shadow: 0 20px 54px rgba(0, 0, 0, .28);
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #fbbf24;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .14em;
+    }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    p { margin: 0; color: #decbb8; line-height: 1.7; white-space: pre-line; }
+    .status {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 14px;
+      color: #fcd34d;
+      font-weight: 900;
+    }
+    .hint {
+      margin-top: 12px;
+      padding: 15px;
+      border-radius: 16px;
+      background: #1f130b;
+      border: 1px solid rgba(251, 191, 36, .14);
+    }
+    .hint.locked { opacity: .45; }
+    .hint strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #fde68a;
+    }
+    .options {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .option {
+      padding: 13px 14px;
+      border-radius: 14px;
+      background: #2b1a0f;
+      border: 1px solid rgba(251, 191, 36, .14);
+      color: #fff7ed;
+      font-weight: 900;
+    }
+    .notice {
+      color: #fef3c7;
+      font-weight: 900;
+    }
+    .muted { color: #bda895; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <p class="eyebrow">WHISKY QUIZ BOARD</p>
+      <h1>🥃 위스키 브랜드 퀴즈</h1>
+      <p class="notice">정답은 웹에서 입력하지 말고 카톡방 채팅으로 입력하세요.</p>
+      <div class="status">
+        <span id="phase">불러오는 중</span>
+        <span id="timer">--초</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div id="hints"></div>
+      <div id="option-wrap" hidden>
+        <div class="hint">
+          <strong>객관식 보기</strong>
+          <p class="muted">번호 또는 이름을 카톡방 채팅으로 입력하세요.</p>
+          <div class="options" id="options"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function() {
+      var params = new URLSearchParams(location.search);
+      var phase = document.querySelector("#phase");
+      var timer = document.querySelector("#timer");
+      var hints = document.querySelector("#hints");
+      var optionWrap = document.querySelector("#option-wrap");
+      var options = document.querySelector("#options");
+      var payload;
+
+      try {
+        payload = JSON.parse(params.get("q") || "{}");
+      } catch (error) {
+        payload = null;
+      }
+
+      if (!payload || !Array.isArray(payload.clues) || !payload.startedAt) {
+        phase.textContent = "잘못된 링크";
+        timer.textContent = "";
+        hints.innerHTML = '<p>카톡방에서 .위스키퀴즈를 다시 시작해주세요.</p>';
+        return;
+      }
+
+      function render() {
+        var now = Date.now();
+        var elapsed = Math.max(0, now - Number(payload.startedAt || 0));
+        var remain = Math.max(0, Math.ceil((Number(payload.durationMs || 60000) - elapsed) / 1000));
+        var visible = 1;
+        if (elapsed >= 15000) visible = 2;
+        if (elapsed >= 30000) visible = 3;
+        var showOptions = elapsed >= 45000;
+
+        timer.textContent = remain > 0 ? remain + "초 남음" : "종료";
+        if (remain <= 0) phase.textContent = "시간 종료";
+        else if (showOptions) phase.textContent = "객관식 공개";
+        else phase.textContent = visible + "단서 공개";
+
+        var html = "";
+        for (var i = 0; i < 3; i++) {
+          var open = i < visible;
+          html += '<div class="hint' + (open ? '' : ' locked') + '">' +
+            '<strong>단서 ' + (i + 1) + '</strong>' +
+            '<p>' + escapeHtml(open ? (payload.clues[i] || "단서 없음") : "아직 공개되지 않았습니다.") + '</p>' +
+            '</div>';
+        }
+        hints.innerHTML = html;
+
+        optionWrap.hidden = !showOptions;
+        if (showOptions && !options.childNodes.length) {
+          (payload.options || []).forEach(function(option, index) {
+            var div = document.createElement("div");
+            div.className = "option";
+            div.textContent = (index + 1) + ". " + option;
+            options.appendChild(div);
+          });
+        }
+      }
+
+      function escapeHtml(value) {
+        return String(value || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      render();
+      setInterval(render, 1000);
+    })();
+  </script>
+</body>
+</html>
