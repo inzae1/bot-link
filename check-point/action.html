@@ -102,6 +102,7 @@
       var lotteryButton = document.querySelector("#lottery");
       var shareButton = document.querySelector("#share");
       var shareText = "";
+      var shareUrl = "https://inzae1.github.io/bot-link/check-point/";
 
       if (!actionId || !actionToken || (mode !== "lottery" && mode !== "steal")) {
         title.textContent = "잘못된 링크입니다";
@@ -155,6 +156,9 @@
           var text = data.message || "완료했습니다.";
         if (typeof data.point === "number") {
             text += "\n현재 포인트: " + data.point + "P";
+        }
+          if (data.statusUrl) {
+            shareUrl = data.statusUrl;
         }
           targets.innerHTML = "";
           lotteryButton.hidden = true;
@@ -283,8 +287,8 @@
           objectType: "text",
           text: "🎮 출석 포인트 게임 결과\n\n" + shareText,
           link: {
-            mobileWebUrl: "https://inzae1.github.io/bot-link/check-point/",
-            webUrl: "https://inzae1.github.io/bot-link/check-point/"
+            mobileWebUrl: shareUrl,
+            webUrl: shareUrl
           },
           buttonTitle: "포인트 현황 보기"
         });
