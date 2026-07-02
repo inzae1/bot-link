@@ -137,6 +137,24 @@
         });
       }
 
+      function makeDeviceToken() {
+        var bytes = new Uint8Array(16);
+        if (window.crypto && crypto.getRandomValues) {
+          crypto.getRandomValues(bytes);
+        } else {
+          for (var index = 0; index < bytes.length; index += 1) {
+            bytes[index] = Math.floor(Math.random() * 256);
+          }
+        }
+        return Array.prototype.map.call(bytes, function(value) {
+          return value.toString(16).padStart(2, "0");
+        }).join("");
+      }
+
+      function getDeviceStorageKey() {
+        return currentSession ? "point_action_device_" + currentSession.actorId : "";
+      }
+
       function finish(text) {
         result.textContent = text;
         shareText = text;
@@ -172,12 +190,17 @@
 
       function startAuth() {
         if (authRequestId) return;
+        var deviceStorageKey = getDeviceStorageKey();
+        if (deviceStorageKey && !deviceToken) {
+          deviceToken = localStorage.getItem(deviceStorageKey) || makeDeviceToken();
+          localStorage.setItem(deviceStorageKey, deviceToken);
+        }
         authCode.hidden = false;
         authCode.textContent = "인증번호 발급 중...";
         requestJson(apiUrl("auth/request"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: "{}"
+          body: JSON.stringify({ deviceToken: deviceToken })
         }).then(function(data) {
           authRequestId = data.requestId;
           authCode.textContent = ".출석등록 " + data.code;
@@ -185,7 +208,7 @@
           message.textContent =
             "이 카드는 " + (currentSession ? currentSession.actorName + "님" : "카드 주인") + "만 사용할 수 있습니다.\n" +
             "처음 한 번만 카톡방에 위 등록 명령을 입력해주세요.";
-          result.textContent = "등록 완료 후 이 브라우저에서는 다음 카드부터 바로 열립니다.";
+          result.textContent = "창을 닫아도 등록은 유지됩니다. 등록 후 같은 링크를 다시 열면 바로 사용할 수 있습니다.";
           authTimer = setInterval(checkAuth, 1800);
         }).catch(function(error) {
           title.textContent = "인증 요청 실패";
@@ -205,7 +228,7 @@
             if (!data.approved) return;
             clearInterval(authTimer);
             sessionToken = data.sessionToken;
-            deviceToken = data.deviceToken || "";
+            deviceToken = data.deviceToken || deviceToken;
             localStorage.setItem("point_action_session_" + actionId, sessionToken);
             if (currentSession && deviceToken) {
               localStorage.setItem("point_action_device_" + currentSession.actorId, deviceToken);
